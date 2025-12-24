@@ -109,7 +109,11 @@ class CustomDataset(Dataset):
         for member in root.findall('object'):
             # Map the current object name to `classes` list to get
             # the label index and append to `labels` list.
-            labels.append(self.classes.index(member.find('name').text))
+            name = member.find('name').text
+            if name not in self.classes:
+                continue
+        
+            labels.append(self.classes.index(name))
             
             # xmin = left corner x-coordinates
             xmin = int(member.find('bndbox').find('xmin').text)
