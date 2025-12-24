@@ -245,8 +245,7 @@ def main(args):
         scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
             optimizer, 
             T_0=steps,
-            T_mult=1,
-            verbose=False
+            T_mult=1
         )
     else:
         scheduler = None
