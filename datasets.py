@@ -237,20 +237,20 @@ class CustomDataset(Dataset):
 
     def __getitem__(self, idx):
         # Capture the image name and the full image path.
-        if not self.mosaic:
-            image, image_resized, orig_boxes, boxes, \
-                labels, area, iscrowd, dims = self.load_image_and_labels(
-                index=idx
-            )
-
-        if self.train and self.mosaic:
+        if self.train:
             while True:
-                image, image_resized, boxes, labels, \
-                    area, iscrowd, dims = self.load_cutmix_image_and_boxes(
-                    idx, resize_factor=(self.height, self.width)
-                )
-                if len(boxes) > 0:
+                if not self.mosaic:
+                    image, image_resized, orig_boxes, boxes, \
+                        labels, area, iscrowd, dims = self.load_image_and_labels(idx)
+                else:
+                    image, image_resized, boxes, labels, \
+                        area, iscrowd, dims = self.load_cutmix_image_and_boxes(
+                            idx, resize_factor=(self.height, self.width)
+                        )
+        
+                if boxes.shape[0] > 0:
                     break
+                idx = random.randint(0, len(self.all_images) - 1)
         
         # visualize_mosaic_images(boxes, labels, image_resized, self.classes)
 
@@ -268,13 +268,25 @@ class CustomDataset(Dataset):
                                      bboxes=target['boxes'],
                                      labels=labels)
             image_resized = sample['image']
-            target['boxes'] = torch.Tensor(sample['bboxes'])
+            if len(sample['bboxes']) == 0:
+                target['boxes'] = torch.zeros((0, 4), dtype=torch.float32)
+                target['labels'] = torch.zeros((0,), dtype=torch.int64)
+                target['area'] = torch.zeros((0,), dtype=torch.float32)
+                target['iscrowd'] = torch.zeros((0,), dtype=torch.int64)
+            else:
+                target['boxes'] = torch.as_tensor(sample['bboxes'], dtype=torch.float32)
         else:
             sample = self.transforms(image=image_resized,
                                      bboxes=target['boxes'],
                                      labels=labels)
             image_resized = sample['image']
-            target['boxes'] = torch.Tensor(sample['bboxes'])
+            if len(sample['bboxes']) == 0:
+                target['boxes'] = torch.zeros((0, 4), dtype=torch.float32)
+                target['labels'] = torch.zeros((0,), dtype=torch.int64)
+                target['area'] = torch.zeros((0,), dtype=torch.float32)
+                target['iscrowd'] = torch.zeros((0,), dtype=torch.int64)
+            else:
+                target['boxes'] = torch.as_tensor(sample['bboxes'], dtype=torch.float32)
         
             
         return image_resized, target
