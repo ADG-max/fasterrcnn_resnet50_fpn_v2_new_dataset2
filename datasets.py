@@ -141,19 +141,14 @@ class CustomDataset(Dataset):
         
         # Bounding box to tensor.
         boxes = torch.as_tensor(boxes, dtype=torch.float32)
+        if boxes.ndim == 1:
+            boxes = boxes.reshape(-1, 4)
+        # Area of the bounding boxes.
+        area = (boxes[:, 3] - boxes[:, 1]) * (boxes[:, 2] - boxes[:, 0])
+        # No crowd instances.
+        iscrowd = torch.zeros((boxes.shape[0],), dtype=torch.int64)
+        # Labels to tensor.
         labels = torch.as_tensor(labels, dtype=torch.int64)
-        
-        # === HANDLE KASUS TIDAK ADA OBJEK ===
-        if boxes.numel() == 0:
-            boxes = torch.zeros((0, 4), dtype=torch.float32)
-            labels = torch.zeros((0,), dtype=torch.int64)
-            area = torch.zeros((0,), dtype=torch.float32)
-            iscrowd = torch.zeros((0,), dtype=torch.int64)
-        else:
-            # Area of the bounding boxes.
-            area = (boxes[:, 3] - boxes[:, 1]) * (boxes[:, 2] - boxes[:, 0])
-            # No crowd instances.
-            iscrowd = torch.zeros((boxes.shape[0],), dtype=torch.int64)
         return image, image_resized, orig_boxes, \
             boxes, labels, area, iscrowd, (image_width, image_height)
 
