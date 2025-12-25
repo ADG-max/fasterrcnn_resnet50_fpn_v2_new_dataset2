@@ -113,6 +113,23 @@ def parse_opt():
     args = vars(parser.parse_args())
     return args
 
+def rebuild_optimizer_and_scheduler(model, lr, total_epochs, use_cosine):
+    params = [p for p in model.parameters() if p.requires_grad]
+    optimizer = torch.optim.AdamW(
+        params, lr=lr, weight_decay=5e-4
+    )
+
+    if use_cosine:
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
+            optimizer,
+            T_0=total_epochs + 10,
+            T_mult=1
+        )
+    else:
+        scheduler = None
+
+    return optimizer, scheduler
+
 def main(args):
     # Initialize W&B with project name.
     # wandb_init(name=args['project_name'])
