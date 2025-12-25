@@ -110,10 +110,14 @@ class CustomDataset(Dataset):
             # Map the current object name to `classes` list to get
             # the label index and append to `labels` list.
             name = member.find('name').text
-            if name not in self.classes:
-                continue
-        
-            labels.append(self.classes.index(name))
+            # === HANDLE DATASET B (label numerik) ===
+            if name.isdigit():
+                cls_id = int(name) + 1   # 0->1 (fire), 1->2 (smoke)
+                labels.append(cls_id)
+            else:
+                if name not in self.classes:
+                    continue
+                labels.append(self.classes.index(name))
             
             # xmin = left corner x-coordinates
             xmin = int(member.find('bndbox').find('xmin').text)
