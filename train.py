@@ -289,6 +289,7 @@ def main(args):
 
     save_best_model = SaveBestModel()
 
+    optimizer_needs_rebuild = False
     for epoch in range(start_epochs, NUM_EPOCHS):
         if args['dataset_type'] == 'b':
             # Stage-wise unfreezing
