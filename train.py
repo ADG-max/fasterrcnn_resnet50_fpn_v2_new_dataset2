@@ -113,6 +113,23 @@ def parse_opt():
     args = vars(parser.parse_args())
     return args
 
+def rebuild_optimizer_and_scheduler(model, lr, total_epochs, use_cosine):
+    params = [p for p in model.parameters() if p.requires_grad]
+    optimizer = torch.optim.AdamW(
+        params, lr=lr, weight_decay=5e-4
+    )
+
+    if use_cosine:
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
+            optimizer,
+            T_0=total_epochs + 10,
+            T_mult=1
+        )
+    else:
+        scheduler = None
+
+    return optimizer, scheduler
+
 def main(args):
     # Initialize W&B with project name.
     # wandb_init(name=args['project_name'])
@@ -279,18 +296,30 @@ def main(args):
                 print('[TL] Epoch 0: training head only')
                 for p in model.backbone.parameters():
                     p.requires_grad = False
-    
+            
+                optimizer, scheduler = rebuild_optimizer_and_scheduler(
+                    model, lr=5e-5, total_epochs=NUM_EPOCHS, use_cosine=args['cosine_annealing']
+                )
+            
             elif epoch == 2:
                 print('[TL] Epoch 2: unfreezing layer4')
                 for name, p in model.backbone.body.named_parameters():
                     if "layer4" in name:
                         p.requires_grad = True
-    
+            
+                optimizer, scheduler = rebuild_optimizer_and_scheduler(
+                    model, lr=3e-5, total_epochs=NUM_EPOCHS, use_cosine=args['cosine_annealing']
+                )
+            
             elif epoch == 4:
                 print('[TL] Epoch 4: unfreezing layer3')
                 for name, p in model.backbone.body.named_parameters():
                     if "layer3" in name:
                         p.requires_grad = True
+            
+                optimizer, scheduler = rebuild_optimizer_and_scheduler(
+                    model, lr=1e-5, total_epochs=NUM_EPOCHS, use_cosine=args['cosine_annealing']
+                )
     
         train_loss_hist.reset()
 
