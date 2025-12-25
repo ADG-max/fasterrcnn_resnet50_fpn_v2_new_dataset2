@@ -247,18 +247,8 @@ def main(args):
     print(f"{total_trainable_params:,} training parameters.")
     # Get the model parameters.
     params = [p for p in model.parameters() if p.requires_grad]
-    if args['dataset_type'] == 'b':
-        optimizer = torch.optim.AdamW(
-            params,
-            lr=5e-5,   # LR kecil untuk transfer learning
-            weight_decay=0.0005
-        )
-    else:
-        optimizer = torch.optim.AdamW(
-            params,
-            lr=1e-4,
-            weight_decay=0.0005
-        )
+    # Define the optimizer.
+    optimizer = torch.optim.AdamW(params, lr=1e-4, weight_decay=5e-4)
     # optimizer = torch.optim.SGD(params, lr=0.001, momentum=0.9, nesterov=True)
     if args['resume_training']: 
         # LOAD THE OPTIMIZER STATE DICTIONARY FROM THE CHECKPOINT.
@@ -280,6 +270,7 @@ def main(args):
     save_best_model = SaveBestModel()
 
     for epoch in range(start_epochs, NUM_EPOCHS):
+        optimizer_rebuilt = False
         if args['dataset_type'] == 'b':
             # Stage-wise unfreezing
             if epoch == 0:
@@ -292,20 +283,29 @@ def main(args):
                 for name, p in model.backbone.body.named_parameters():
                     if "layer4" in name:
                         p.requires_grad = True
+                optimizer_rebuilt = True
     
             elif epoch == 4:
                 print('[TL] Epoch 4: unfreezing layer3')
                 for name, p in model.backbone.body.named_parameters():
                     if "layer3" in name:
                         p.requires_grad = True
+                optimizer_rebuilt = True
     
-            # IMPORTANT: re-create optimizer after unfreeze
-            params = [p for p in model.parameters() if p.requires_grad]
-            optimizer = torch.optim.AdamW(
-                params,
-                lr=5e-5,
-                weight_decay=0.0005
-            )
+            if optimizer_rebuilt:
+                params = [p for p in model.parameters() if p.requires_grad]
+                optimizer = torch.optim.AdamW(
+                    params, lr=5e-5, weight_decay=5e-4
+                )
+            if args['cosine_annealing']:
+                # LR will be zero as we approach `steps` number of epochs each time.
+                # If `steps = 5`, LR will slowly reduce to zero every 5 epochs.
+                steps = NUM_EPOCHS + 10
+                scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
+                    optimizer, 
+                    T_0=steps,
+                    T_mult=1
+                )
         train_loss_hist.reset()
 
         _, batch_loss_list, \
