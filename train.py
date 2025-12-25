@@ -104,6 +104,12 @@ def parse_opt():
              loads previous training plots and epochs \
              and also loads the otpimizer state dictionary'
     )
+    parser.add_argument(
+        '--dataset-type',
+        default='a',
+        choices=['a', 'b'],
+        help='dataset type: a = normal training, b = transfer learning fine-tuning'
+    )
     args = vars(parser.parse_args())
     return args
 
@@ -222,6 +228,17 @@ def main(args):
         
     print(model)
     model = model.to(DEVICE)
+    if args['dataset_type'] == 'b':
+        print('[INFO] Dataset B detected: applying transfer learning strategy')
+    
+        # Freeze entire backbone
+        for param in model.backbone.parameters():
+            param.requires_grad = False
+    
+        # Ensure ROI heads are trainable
+        for param in model.roi_heads.parameters():
+            param.requires_grad = True
+            
     # Total parameters and trainable parameters.
     total_params = sum(p.numel() for p in model.parameters())
     print(f"{total_params:,} total parameters.")
@@ -230,9 +247,19 @@ def main(args):
     print(f"{total_trainable_params:,} training parameters.")
     # Get the model parameters.
     params = [p for p in model.parameters() if p.requires_grad]
-    # Define the optimizer.
+    if args['dataset_type'] == 'b':
+        optimizer = torch.optim.AdamW(
+            params,
+            lr=5e-5,   # LR kecil untuk transfer learning
+            weight_decay=0.0005
+        )
+    else:
+        optimizer = torch.optim.AdamW(
+            params,
+            lr=1e-4,
+            weight_decay=0.0005
+        )
     # optimizer = torch.optim.SGD(params, lr=0.001, momentum=0.9, nesterov=True)
-    optimizer = torch.optim.AdamW(params, lr=0.0001, weight_decay=0.0005)
     if args['resume_training']: 
         # LOAD THE OPTIMIZER STATE DICTIONARY FROM THE CHECKPOINT.
         print('Loading optimizer state dictionary...')
@@ -253,6 +280,32 @@ def main(args):
     save_best_model = SaveBestModel()
 
     for epoch in range(start_epochs, NUM_EPOCHS):
+        if args['dataset_type'] == 'b':
+            # Stage-wise unfreezing
+            if epoch == 0:
+                print('[TL] Epoch 0: training head only')
+                for p in model.backbone.parameters():
+                    p.requires_grad = False
+    
+            elif epoch == 2:
+                print('[TL] Epoch 2: unfreezing layer4')
+                for name, p in model.backbone.body.named_parameters():
+                    if "layer4" in name:
+                        p.requires_grad = True
+    
+            elif epoch == 4:
+                print('[TL] Epoch 4: unfreezing layer3')
+                for name, p in model.backbone.body.named_parameters():
+                    if "layer3" in name:
+                        p.requires_grad = True
+    
+            # IMPORTANT: re-create optimizer after unfreeze
+            params = [p for p in model.parameters() if p.requires_grad]
+            optimizer = torch.optim.AdamW(
+                params,
+                lr=5e-5,
+                weight_decay=0.0005
+            )
         train_loss_hist.reset()
 
         _, batch_loss_list, \
