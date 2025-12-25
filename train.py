@@ -118,7 +118,6 @@ def rebuild_optimizer_and_scheduler(model, lr, total_epochs, use_cosine):
     optimizer = torch.optim.AdamW(
         params, lr=lr, weight_decay=5e-4
     )
-
     if use_cosine:
         scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
             optimizer,
@@ -213,14 +212,7 @@ def main(args):
         model = build_model(num_classes=old_classes)
         # Load weights.
         model.load_state_dict(ckpt_state_dict)
-        if args['dataset_type'] == 'b':
-            print('[INFO] Dataset B detected: applying transfer learning strategy')
-            # Freeze entire backbone
-            for param in model.backbone.parameters():
-                param.requires_grad = False
-            # Ensure ROI heads are trainable
-            for param in model.roi_heads.parameters():
-                param.requires_grad = True
+
         # Change output features for class predictor and box predictor
         # according to current dataset classes.
         in_features = model.roi_heads.box_predictor.cls_score.in_features
@@ -252,7 +244,14 @@ def main(args):
         
     print(model)
     model = model.to(DEVICE)
-
+    if args['dataset_type'] == 'b':
+        print('[INFO] Dataset B detected: applying transfer learning strategy')
+        # Freeze entire backbone
+        for param in model.backbone.parameters():
+            param.requires_grad = False
+        # Ensure ROI heads are trainable
+        for param in model.roi_heads.parameters():
+            param.requires_grad = True
             
     # Total parameters and trainable parameters.
     total_params = sum(p.numel() for p in model.parameters())
