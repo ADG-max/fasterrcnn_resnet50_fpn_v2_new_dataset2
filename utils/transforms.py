@@ -8,6 +8,7 @@ def get_train_aug():
     return A.Compose([
         A.HorizontalFlip(p=0.5),
         A.MotionBlur(blur_limit=3, p=0.5),
+        A.Blur(blur_limit=3, p=0.5),
         A.RandomBrightnessContrast(
             brightness_limit=0.2, p=0.5
         ),
