@@ -205,7 +205,7 @@ def main(args):
         keys = list(checkpoint['model_state_dict'].keys())
         ckpt_state_dict = checkpoint['model_state_dict']
         # Get the number of classes from the loaded checkpoint.
-        old_classes = ckpt_state_dict['roi_heads.box_predictor.cls_score.weight'].shape[0]
+        old_classes = checkpoint['model_state_dict'][next(k for k in ckpt_state_dict if 'cls_score.weight' in k)].shape[0]
 
         # Build the new model with number of classes same as checkpoint.
         build_model = create_model[args['model']]
