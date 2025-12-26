@@ -198,20 +198,28 @@ def main(args):
 
     # Load pretrained weights if path is provided.
     if args['weights'] is not None:
-        print('Loading pretrained weights...')
-        
-        # Load the pretrained checkpoint.
-        checkpoint = torch.load(args['weights'], map_location=DEVICE) 
-        keys = list(checkpoint['model_state_dict'].keys())
+        print('Loading pretrained weights (transfer learning)...')
+    
+        checkpoint = torch.load(args['weights'], map_location=DEVICE)
         ckpt_state_dict = checkpoint['model_state_dict']
-        # Get the number of classes from the loaded checkpoint.
-        old_classes = checkpoint['model_state_dict'][next(k for k in ckpt_state_dict if 'cls_score.weight' in k)].shape[0]
-
-        # Build the new model with number of classes same as checkpoint.
+    
+        # 1. Remove 'module.' prefix (jika checkpoint dari DataParallel)
+        from collections import OrderedDict
+        new_state_dict = OrderedDict()
+        for k, v in ckpt_state_dict.items():
+            new_state_dict[k.replace('module.', '')] = v
+        ckpt_state_dict = new_state_dict
+    
+        # 2. Build model untuk DATASET TARGET
         build_model = create_model[args['model']]
-        model = build_model(num_classes=old_classes)
-        # Load weights.
-        model.load_state_dict(ckpt_state_dict)
+        model = build_model(num_classes=NUM_CLASSES, pretrained=False)
+    
+        # 3. Partial load (TRANSFER LEARNING)
+        missing, unexpected = model.load_state_dict(
+            ckpt_state_dict, strict=False
+        )
+        print('[TL] Missing keys:', missing)
+        print('[TL] Unexpected keys:', unexpected)
 
         # Change output features for class predictor and box predictor
         # according to current dataset classes.
