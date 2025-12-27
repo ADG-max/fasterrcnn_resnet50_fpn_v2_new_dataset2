@@ -200,7 +200,7 @@ def main(args):
     if args['weights'] is not None:
         print('Loading pretrained weights (transfer learning)...')
     
-        checkpoint = torch.load(args['weights'], map_location=DEVICE)
+        checkpoint = torch.load(args['weights'], map_location=DEVICE, weights_only=False)
         ckpt_state_dict = checkpoint['model_state_dict']
     
         # 1. Remove 'module.' prefix (jika checkpoint dari DataParallel)
